@@ -167,6 +167,7 @@ public unsafe partial class Sarc : SafeHandleMinusOneIsInvalid
     }
 
     public override bool IsInvalid { get; }
+    public bool IsWriter => _writer > -1;
 
     protected override bool ReleaseHandle()
     {
