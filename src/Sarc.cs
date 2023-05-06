@@ -2,6 +2,7 @@
 
 using Cead.Handles;
 using Microsoft.Win32.SafeHandles;
+using System.Collections;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
@@ -18,7 +19,7 @@ public enum Mode
     Legacy, New
 }
 
-public unsafe partial class Sarc : SafeHandleMinusOneIsInvalid
+public unsafe partial class Sarc : SafeHandleMinusOneIsInvalid, IEnumerable<KeyValuePair<string, Sarc.SarcFile>>, IEnumerable
 {
     [LibraryImport(CeadLib)] private static partial Sarc SarcFromBinary(byte* src, int src_len);
     [LibraryImport(CeadLib)] private static partial DataHandle SarcToBinary(IntPtr writer);
@@ -48,7 +49,7 @@ public unsafe partial class Sarc : SafeHandleMinusOneIsInvalid
 
     public Span<byte> this[string key] {
         get {
-            bool success = _writer > -1 ? SarcWriterGet((nint)_writer, key, out byte* ptr, out int len) : GetFile(handle, key, out ptr, out len);
+            bool success = _writer > -1 ? SarcWriterGet(_writer, key, out byte* ptr, out int len) : GetFile(handle, key, out ptr, out len);
             if (!success) {
                 throw new KeyNotFoundException($"Could not find a file with the name '{key}'");
             }
@@ -77,7 +78,7 @@ public unsafe partial class Sarc : SafeHandleMinusOneIsInvalid
         fs.Write(dataHandle.AsSpan());
     }
 
-    public int Count => _writer > -1 ? GetFileMapCount((nint)_writer) : GetNumFiles(handle);
+    public int Count => _writer > -1 ? GetFileMapCount(_writer) : GetNumFiles(handle);
     public Endianness Endian {
         get => GetEndianness(handle);
         set => SetEndianness(Writer, value);
@@ -101,23 +102,19 @@ public unsafe partial class Sarc : SafeHandleMinusOneIsInvalid
         ClearSarcFiles(Writer);
     }
 
-    public Enumerator GetEnumerator() => new(this);
-    public ref struct Enumerator
+    Enumerator GetEnumerator()
+        => new(this);
+
+    IEnumerator<KeyValuePair<string, SarcFile>> IEnumerable<KeyValuePair<string, SarcFile>>.GetEnumerator()
+        => new Enumerator(this);
+
+    IEnumerator IEnumerable.GetEnumerator()
+        => new Enumerator(this);
+
+    public struct Enumerator : IEnumerator<KeyValuePair<string, SarcFile>>, IEnumerator
     {
-        private readonly Sarc _handle;
-        private IntPtr _iterator;
+        object IEnumerator.Current => Current;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal Enumerator(Sarc handle)
-        {
-            _handle = handle;
-            _iterator = IntPtr.Zero;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool MoveNext() => SarcAdvance(_handle.Writer, _iterator, out _iterator);
-
-        /// <summary>Gets the element at the current position of the enumerator.</summary>
         public KeyValuePair<string, SarcFile> Current {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get {
@@ -125,6 +122,26 @@ public unsafe partial class Sarc : SafeHandleMinusOneIsInvalid
                 return new(Utf8StringMarshaller.ConvertToManaged(keyPtr)!, new(dst, dstLen));
             }
         }
+
+        private readonly Sarc _handle;
+        private IntPtr _iterator;
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal Enumerator(Sarc handle)
+        {
+            _handle = handle;
+            _iterator = IntPtr.Zero;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNext() => SarcAdvance(_handle.Writer, _iterator, out _iterator);
+
+        public void Reset()
+        {
+            _iterator = IntPtr.Zero;
+        }
+
+        public void Dispose() { }
     }
 
     public struct SarcFile
