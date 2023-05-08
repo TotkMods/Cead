@@ -22,7 +22,7 @@ public static class DllManager
             return;
         }
 
-        string path = Path.Combine(Path.GetTempPath(), $"Cead-{typeof(DllManager).Assembly.GetName().Version}");
+        string path = Path.Combine(Path.GetTempPath(), Assembly.GetCallingAssembly().GetName().Name ?? "Cead", $"Cead-{typeof(DllManager).Assembly.GetName().Version}");
 
         foreach (var lib in _libs) {
             string dll = Path.Combine(path, lib);
