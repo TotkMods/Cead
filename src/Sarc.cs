@@ -166,7 +166,7 @@ public unsafe partial class Sarc : SafeHandleMinusOneIsInvalid, IEnumerable<KeyV
         /// Creates a managed copy of the data
         /// </summary>
         /// <returns></returns>
-        public Span<byte> ToArray()
+        public byte[] ToArray()
         {
             return _cache ??= AsSpan().ToArray();
         }
